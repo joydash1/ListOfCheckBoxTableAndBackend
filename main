@@ -1,0 +1,107 @@
+<input id='checkAll' type='checkbox' class='check-boxAll' />
+
+$('#checkAll').click(function () {
+
+    if ($('#checkAll').is(':checked') == true) {
+        $('.Clcheckbox').prop('checked', true);
+    } else {
+        $('.Clcheckbox').prop('checked', false);
+    }
+});
+
+var AllChekedId = "";
+
+$(".Clcheckbox").each(function () {
+    if ($(this).is(":checked") == true) {
+        AllChekedId = $(this).attr("Id") + "," + AllChekedId;
+    }
+});
+
+
+ $.ajax({
+     type: 'GET',
+     contentType: "application/json; charset=utf-8",
+     url: '@Url.Action("ApprovePaymentReversal", "AccPayment", "http")',
+     data: { AllChekedId: AllChekedId },
+     dataType: 'json',
+     async: true,
+     success: function (data) {
+         $("#AjaxLoader").hide();
+         if (data.Result == "success") {
+             $.alert.open("success", data.Message);
+             setTimeout(function () {
+                 location.reload();
+             }, 2000);
+         }
+         else {
+             $.alert.open("error", data.Message);
+         }
+     },
+     error: function (request, status, error) {
+         $("#AjaxLoader").hide();
+         alert(request.statusText + "/" + request.statusText + "/" + error);
+     }
+ });
+
+ public JsonResult ApprovePaymentReversal(string AllChekedId)
+ {
+     try
+     {
+         if (!string.IsNullOrWhiteSpace(AllChekedId))
+         {
+             
+             AllChekedId = AllChekedId.TrimEnd(',');
+
+             var idList = AllChekedId.Split(',');
+
+             foreach (var idStr in idList)
+             {
+                 if (int.TryParse(idStr, out int id))
+                 {
+                     spService.GetDataWithParameter(new
+                     {
+                         ACC_PAYMENT_ID = id
+                     }, "USP_APPROVE_PAYMENT_INFO_REVERSAL");
+                 }
+             }
+         }
+
+         return Json(new { Result = "success", Message = "Payment(s) reversed successfully." }, JsonRequestBehavior.AllowGet);
+     }
+     catch (Exception ex)
+     {
+         return Json(new { Result = "error", Message = ex.Message }, JsonRequestBehavior.AllowGet);
+     }
+ }
+
+
+ALTER PROCEDURE USP_APPROVE_PAYMENT_INFO_REVERSAL
+@ACC_PAYMENT_ID INT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        UPDATE AP
+        SET 
+            AP.IsReversal = 1
+        FROM AccPayment AP
+        WHERE AP.Id = @ACC_PAYMENT_ID AND AP.IsActive = 1;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+
+
+
+
+
+
+
